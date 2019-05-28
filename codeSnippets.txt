@@ -1,0 +1,247 @@
+slide 6 - Template for a react component
+import React, { Component } from 'react';
+
+class ZipForm extends Component {
+  constructor (props) {
+    super(props);
+    this.state = {};
+  }
+
+  render() {
+    return (
+        <div>ZipForm</div>
+    );
+  }
+}
+
+export default ZipForm;
+
+slide 8 - render for ZipForm
+<div class="zip-form">
+    <form id="zipForm">
+        <div class="flex-parent">
+            <label for="zipcode">Zip</label>
+            <input class="form-control” type="input" id="zipcode" name="zipcode"  value="" required />
+            <button type="submit" class="btn btn-success"> Get the forcast!</button>
+        </div>
+    </form>
+</div>
+
+slide 11 - add an event handler to zipForm
+-   to the input tag in render
+    onChange={this.inputChanged}
+-   add this method
+    inputChanged(e) {
+        const {value} = e.target;
+        this.setState( {zipcode: value} );
+    }
+
+slide 12 - communication between App and ZipForm 
+-   in App.js
+    onFormSubmit(zipcode) {
+        this.setState( {zipcode} ); //or {zipcode: zipcode}
+    }
+
+    Add an onSubmit handler to the JSX for the Zipform element 
+    in the render method
+    <ZipForm onSubmit={this.onFormSubmit} />
+-   in ZipForm.js
+    submitZipCode (e) {
+        e.preventDefault(); // don’t submit the form
+        const { zipcode } = this.state; // get the zipcode from the state
+        const { onSubmit } = this.props; // the method from the App 
+        onSubmit(zipcode); // the form calls a method on the App and passes the zipcode
+        this.setState( {zipcode : “”} ); // clear the zipcode in the class (and on the web page)
+    }
+
+    Add an onSubmit handler to the jsx for the form element in the render method
+    <form onSubmit={this.submitZipCode} … >
+
+slide 14 - Add the ajax call to onFormSubmit in App.js    
+    fetch(`${this.url}${zipcode}${this.apikey}`)
+	    .then(response => response.json())
+        .then(data => { 
+            const {city, list: forecast } = data; 
+            fetch(`${this.googleMapsUrl}
+                ${city.coord.lat},${city.coord.lon}
+                &timestamp=${forecast[0].dt}
+                &key=${this.googleApiKey}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+                const timezoneOffset =  (data.rawOffset + data.dstOffset) / (60 * 60);
+                const simpleForecast = this.parseForecast(forecast, timezoneOffset);
+                zipcode = ""; 
+                this.setState({zipcode, city, forecast, simpleForecast, timezoneOffset, selectedDate: null});         
+            })
+            .catch(googleError => {
+                alert('There was a problem getting timezone info!')
+            });
+        })
+        .catch(error => {
+            alert('There was a problem getting info!'); 
+        });
+
+slide 16 - with Axios
+    get(`${this.url}${zipcode}${this.apikey}`)
+        .then(({data})  => { 
+            const {city, list: forecast } = data; 
+            get(`${this.googleMapsUrl}${city.coord.lat},${city.coord.lon}&timestamp=${forecast[0].dt}&key=${this.googleApiKey}`)
+            .then(({data})  => {
+                console.log(data);
+                const timezoneOffset =  (data.rawOffset + data.dstOffset) / (60 * 60);
+                const simpleForecast = this.parseForecast(forecast, timezoneOffset);
+                zipcode = ""; 
+                this.setState({zipcode, city, forecast, simpleForecast, timezoneOffset, selectedDate: null});         
+            })
+            .catch(googleError => {
+                alert('There was a problem getting timezone info!')
+            });
+        })
+        .catch(error => {
+            alert('There was a problem getting info!'); 
+        });
+
+slide 17 - render for WeatherList
+  render () {
+    const { forecastDays } = this.props;
+    return (
+        <div className="weather-list flex-parent">
+            { forecastDays.map((forecastDay, index) =>
+                <WeatherListItem
+                    key={forecastDay.dt}
+                    forecastDay={forecastDay}
+                    index={index}
+                />
+            ) }
+        </div>
+    );
+  }
+
+slide 18 - render for WeatherListItem  
+  render() {
+    const { forecastDay } = this.props;
+    const date = new Date(forecastDay.dt * 1000);
+    const weekday = this.getWeekday(date);
+    return (
+        <div class="weather-list-item">
+            <h2>{date.getMonth() + 1} / {date.getDate()}</h2>
+            <h3>{weekday}</h3>
+            <h3>{forecastDay.minTemp.toFixed(1)}&deg;F &#124; {forecastDay.maxTemp.toFixed(1)}&deg;F</h3>
+        </div>
+    );
+  }
+
+  getWeekday(date) {
+    const dayNames = ['Sunday','Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weekday = date.getDay();
+    return dayNames[weekday];
+  }
+
+  slide 19 - render in App.js should now look like this
+    render() {
+    const { simpleForecast, city, selectedDate } = this.state;
+    return (
+      <div id="app-container">
+        <div className="app">
+          <ZipForm onSubmit={this.onFormSubmit}/>
+          <WeatherList forecastDays={simpleForecast}/>
+        </div>
+      </div>
+    );
+  }
+
+slide 22 - CurrentDay component - render method
+  render() {
+
+    const { city, forecastDay } = this.props;
+    const date = new Date(forecastDay.dt * 1000);
+    const weekday = this.getWeekday(date);
+
+    return (
+        <div className="current-day">
+        <h1 className="day-header">{weekday} in {city.name}</h1>
+        <div className="weather">
+            <p>
+                <img src={`http://openweathermap.org/img/w/${forecastDay.icon}.png`} alt={forecastDay.description}/>
+                {forecastDay.description}
+            </p>
+            </div>
+        <div className="details flex-parent">
+            <div className="temperature-breakdown">
+            <p>Morning Temperature: {forecastDay.morningTemp}&deg;F</p>
+            <p>Day Temperature: {forecastDay.dayTemp}&deg;F</p>
+            <p>Evening Temperature: {forecastDay.eveningTemp}&deg;F</p>
+            <p>Night Temperature: {forecastDay.nightTemp}&deg;F</p>
+            </div>
+            <div className="misc-details">
+            <p>Atmospheric Pressure: {forecastDay.pressure} hPa</p>
+            <p>Humidity: {forecastDay.humidity}%</p>
+            <p>Wind Speed: {forecastDay.wind} mph</p>
+            </div>
+        </div>
+        </div>
+    );
+  }
+
+  slide 23 - modify the WeatherListItem
+  constructor (props) {
+    super(props);
+    this.onClick = this.onClick.bind(this);
+  }
+
+  onClick () {
+      const { onDayClicked, index } = this.props;
+      onDayClicked(index);
+  }
+
+  render() {
+    ...
+    return (
+        <div className="weather-list-item" onClick={this.onClick}>
+
+slide 24 - Modify WeatherList
+render () {
+    const { forecastDays, onDayClicked } = this.props;
+    return (
+        <div className="weather-list flex-parent">
+            { forecastDays.map((forecastDay, index) =>
+                <WeatherListItem
+                    key={forecastDay.dt}
+                    forecastDay={forecastDay}
+                    index={index}
+                    onDayClicked={onDayClicked}
+                />
+            ) }
+        </div>
+    );
+  } 
+
+slide 25 - Modify App
+constructor() {
+    ...
+    this.onDayClicked = this.onDayClicked.bind(this);
+}
+
+onDayClicked(dayIndex) {
+    this.setState({ selectedDate: dayIndex });
+}
+
+render() {
+    const { simpleForecast, city, selectedDate } = this.state;
+    return (
+        <div id="app-container">
+            <div className="app">
+                <ZipForm onSubmit={this.onFormSubmit}/>
+                <WeatherList forecastDays={simpleForecast} onDayClicked={this.onDayClicked} />
+                {selectedDate !== null && <CurrentDay forecastDay={simpleForecast[selectedDate]} city={city} />}
+            </div>
+        </div>
+    );
+}
+
+
+
+
+
+
